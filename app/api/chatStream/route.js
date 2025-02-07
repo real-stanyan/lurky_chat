@@ -1,21 +1,24 @@
-import connectToDatabase from "../../../lib/mongodb";
-import Message from "../../../models/Message";
-
-export async function GET() {
-  await connectToDatabase();
+export async function GET(request) {
   const encoder = new TextEncoder();
 
-  let changeStream;
   const stream = new ReadableStream({
     start(controller) {
-      changeStream = Message.watch([{ $match: { operationType: "insert" } }]);
-      changeStream.on("change", (change) => {
-        const data = JSON.stringify(change.fullDocument);
-        controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-      });
-    },
-    cancel() {
-      changeStream.close();
+      // 初始消息
+      controller.enqueue(encoder.encode(`data: Connected\n\n`));
+
+      // 模拟每秒推送一次消息
+      const interval = setInterval(() => {
+        controller.enqueue(
+          encoder.encode(`data: message at ${new Date().toISOString()}\n\n`)
+        );
+      }, 1000);
+
+      // 50秒后关闭连接，避免超时
+      setTimeout(() => {
+        clearInterval(interval);
+        controller.enqueue(encoder.encode(`data: Connection closing...\n\n`));
+        controller.close();
+      }, 50000);
     },
   });
 
